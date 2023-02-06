@@ -2,7 +2,7 @@ import os
 import sys
 import requests
 from PyQt5.QtGui import QPixmap
-
+import math
 from PyQt5.QtWidgets import QMainWindow, QLabel, QApplication
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
@@ -15,7 +15,9 @@ class MainWindow(QMainWindow):
         super(MainWindow, self).__init__()
         self.pos = "58.310022,51.194357"
         self.staticmap_url = "https://static-maps.yandex.ru/1.x/"
-        self.scale = 19  # 'z' param in api
+        self.scale = 19  # 'z' param in
+        self.k = 1
+        self.offset = 3
         self.image = None
         self.pixmap = None
         self.get_image()
@@ -63,10 +65,22 @@ class MainWindow(QMainWindow):
             self.scale += 1
             if self.scale > 23:
                 self.scale = 23
+            self.k -= 0.6
         elif event.key() == Qt.Key_PageDown:
             self.scale -= 1
             if self.scale < 1:
                 self.scale = 1
+            self.k += 0.6
+        pos = [float(i) for i in self.pos.split(",")]
+        if event.key() == Qt.Key_Up:
+            pos[1] += self.offset ** self.k * 0.0001
+        elif event.key() == Qt.Key_Down:
+            pos[1] -= self.offset ** self.k * 0.0001
+        elif event.key() == Qt.Key_Left:
+            pos[0] -= self.offset ** self.k * 0.0001
+        elif event.key() == Qt.Key_Right:
+            pos[0] += self.offset ** self.k * 0.0001
+        self.pos = ",".join(str(i) for i in pos)
         self.update_image()
 
 
