@@ -2,34 +2,84 @@ import os
 import sys
 import requests
 from PyQt5.QtGui import QPixmap
-import math
+from gui import Ui_mainWindow
 from PyQt5.QtWidgets import QMainWindow, QLabel, QApplication
 from PyQt5 import uic
 from PyQt5.QtCore import Qt
 
 
-class MainWindow(QMainWindow):
+class MainWindow(QMainWindow, Ui_mainWindow):
     map_file = "map.png"
 
     def __init__(self):
-        super(MainWindow, self).__init__()
+        super().__init__()
         self.pos = "58.310022,51.194357"
+        self.setupUi(self)
+        self.setup_buttons()
         self.staticmap_url = "https://static-maps.yandex.ru/1.x/"
+        self.search_url = "https://search-maps.yandex.ru/v1/"
         self.scale = 19  # 'z' param in
+        self.map_type = "map"
+        self.map_params = {"z": self.scale,
+                           "ll": self.pos,
+                           "l": self.map_type,
+                           "size": "650,450"}
+        self.mark = None
         self.k = 1
         self.offset = 3
+
         self.image = None
         self.pixmap = None
         self.get_image()
-        self.loadUI()
+        self.loadUi()
 
-    def loadUI(self):
-        uic.loadUi("map_v2.ui", self)
+    def loadUi(self):
         self.setWindowTitle("Большая задача по Maps API. Часть №1")
-        self.image = QLabel(self)
-        self.image.move(0, 0)
-        self.image.resize(800, 600)
+        self.image = self.label
         self.set_map()
+
+    def setup_buttons(self):
+        self.map_btn.clicked.connect(lambda: self.change_map_type("map"))
+        self.sput_btn.clicked.connect(lambda: self.change_map_type("sat"))
+        self.gibr_btn.clicked.connect(lambda: self.change_map_type("skl"))
+        self.pushButton.clicked.connect(self.delete_mark)
+
+        self.lineEdit.editingFinished.connect(self.find_object)
+
+    def delete_mark(self):
+        self.map_params.pop("pt", "")
+        self.mark = None
+        self.update_image()
+
+    def find_object(self):
+        name = self.lineEdit.text()
+        if name == "": return
+        params = {"text": name,
+                  "lang": "ru_RU",
+                  "apikey": 'dda3ddba-c9ea-4ead-9010-f43fbc15c6e3'}
+        response = requests.get(self.search_url, params)
+        if not response: return
+        json_response = response.json()
+
+        obj = json_response["features"][0]
+
+        point = obj["geometry"]["coordinates"]
+        org_point = "{0},{1}".format(point[0], point[1])
+        self.pos = org_point
+        self.mark = org_point
+        self.update_image()
+
+    def change_map_type(self, typ):
+        self.map_type = typ
+        self.update_image()
+
+    def set_map_params(self):
+        self.map_params = {"z": self.scale,
+                           "ll": self.pos,
+                           "l": self.map_type,
+                           "size": "650,450"}
+        if self.mark:
+            self.map_params["pt"] = self.mark
 
     def set_map(self):
         self.pixmap = QPixmap(MainWindow.map_file)
@@ -37,10 +87,7 @@ class MainWindow(QMainWindow):
 
     def get_image(self):
         response = requests.get(url=self.staticmap_url,
-                                params={"z": self.scale,
-                                        "ll": self.pos,
-                                        "l": "map",
-                                        "size": "650,450"})
+                                params=self.map_params)
         if not response:
             print("Ошибка выполнения запроса:")
             print(response.url)
@@ -53,6 +100,7 @@ class MainWindow(QMainWindow):
             file.write(response.content)
 
     def update_image(self):
+        self.set_map_params()
         self.get_image()
         self.set_map()
         self.update()
@@ -71,6 +119,7 @@ class MainWindow(QMainWindow):
             if self.scale < 1:
                 self.scale = 1
             self.k += 0.6
+
         pos = [float(i) for i in self.pos.split(",")]
         if event.key() == Qt.Key_Up:
             pos[1] += self.offset ** self.k * 0.0001
@@ -80,7 +129,9 @@ class MainWindow(QMainWindow):
             pos[0] -= self.offset ** self.k * 0.0001
         elif event.key() == Qt.Key_Right:
             pos[0] += self.offset ** self.k * 0.0001
+
         self.pos = ",".join(str(i) for i in pos)
+
         self.update_image()
 
 
