@@ -4,7 +4,6 @@ import requests
 from PyQt5.QtGui import QPixmap
 from gui import Ui_mainWindow
 from PyQt5.QtWidgets import QMainWindow, QLabel, QApplication
-from PyQt5 import uic
 from PyQt5.QtCore import Qt
 
 
@@ -47,11 +46,13 @@ class MainWindow(QMainWindow, Ui_mainWindow):
         self.lineEdit.editingFinished.connect(self.find_object)
 
     def delete_mark(self):
+        self.sender().clearFocus()
         self.map_params.pop("pt", "")
         self.mark = None
         self.update_image()
 
     def find_object(self):
+        self.lineEdit.clearFocus()
         name = self.lineEdit.text()
         if name == "": return
         params = {"text": name,
@@ -71,6 +72,7 @@ class MainWindow(QMainWindow, Ui_mainWindow):
 
     def change_map_type(self, typ):
         self.map_type = typ
+        self.sender().clearFocus()
         self.update_image()
 
     def set_map_params(self):
@@ -129,8 +131,9 @@ class MainWindow(QMainWindow, Ui_mainWindow):
             pos[0] -= self.offset ** self.k * 0.0001
         elif event.key() == Qt.Key_Right:
             pos[0] += self.offset ** self.k * 0.0001
-
-        self.pos = ",".join(str(i) for i in pos)
+        print(pos)
+        if 0 < pos[0] < 90 and 0 < pos[1] < 90:
+            self.pos = ",".join(str(i) for i in pos)
 
         self.update_image()
 

@@ -54,11 +54,14 @@
       <height>21</height>
      </rect>
     </property>
+    <property name="mouseTracking">
+     <bool>false</bool>
+    </property>
     <property name="focusPolicy">
      <enum>Qt::ClickFocus</enum>
     </property>
     <property name="contextMenuPolicy">
-     <enum>Qt::DefaultContextMenu</enum>
+     <enum>Qt::NoContextMenu</enum>
     </property>
     <property name="text">
      <string>спутник</string>
@@ -89,6 +92,9 @@
       <height>461</height>
      </rect>
     </property>
+    <property name="acceptDrops">
+     <bool>true</bool>
+    </property>
     <property name="text">
      <string/>
     </property>
@@ -102,8 +108,17 @@
       <height>22</height>
      </rect>
     </property>
+    <property name="focusPolicy">
+     <enum>Qt::ClickFocus</enum>
+    </property>
+    <property name="acceptDrops">
+     <bool>false</bool>
+    </property>
     <property name="text">
      <string>Поиск объекта</string>
+    </property>
+    <property name="clearButtonEnabled">
+     <bool>false</bool>
     </property>
    </widget>
    <widget class="QPushButton" name="pushButton">
@@ -114,6 +129,9 @@
       <width>111</width>
       <height>21</height>
      </rect>
+    </property>
+    <property name="focusPolicy">
+     <enum>Qt::ClickFocus</enum>
     </property>
     <property name="text">
      <string>сброс результата</string>
