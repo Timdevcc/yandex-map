@@ -1,11 +1,15 @@
 import os
 import sys
 import requests
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QColor, QKeyEvent
 
 from PyQt5.QtWidgets import QMainWindow, QLabel, QApplication
 from PyQt5 import uic
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEvent
+
+
+def except_hook(cls, exception, traceback):
+    sys.__excepthook__(cls, exception, traceback)
 
 
 class MainWindow(QMainWindow):
@@ -52,6 +56,14 @@ class MainWindow(QMainWindow):
 
     def set_map(self):
         self.pixmap = QPixmap(MainWindow.map_file)
+        color = self.pixmap.toImage().pixelColor(0, 0)
+        if color == QColor("#BEBEBE"):
+            print(QEvent.KeyPress)
+            self.keyPressEvent(event=QKeyEvent(
+                QEvent.Type(6), self.last_move_back,
+                Qt.KeyboardModifier.NoModifier),
+                is_real_event=False)
+            return
         self.image.setPixmap(self.pixmap)
 
     def get_image(self):
@@ -79,30 +91,37 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         os.remove(MainWindow.map_file)
 
-    def keyPressEvent(self, event):
+    def keyPressEvent(self, event, is_real_event=True):
+        self.last_move_back = 0
         if event.key() == Qt.Key_PageUp:
             self.scale += 1
             if self.scale > 23:
                 self.scale = 23
+            self.last_move_back = Qt.Key_PageDown
         elif event.key() == Qt.Key_PageDown:
             self.scale -= 1
             if self.scale < 1:
                 self.scale = 1
+            self.last_move_back = Qt.Key_Up
         elif event.key() == Qt.Key_Up:
             self.pos[1] = self.pos[1] + self.move_from_scale[self.scale]
-            print(self.scale)
+            self.last_move_back = Qt.Key_Down
         elif event.key() == Qt.Key_Down:
             self.pos[1] = self.pos[1] - self.move_from_scale[self.scale]
+            self.last_move_back = Qt.Key_Up
         elif event.key() == Qt.Key_Left:
             self.pos[0] = self.pos[0] - self.move_from_scale[self.scale]
+            self.last_move_back = Qt.Key_Right
         elif event.key() == Qt.Key_Right:
             self.pos[0] = self.pos[0] + self.move_from_scale[self.scale]
-        print(self.pos)
-        self.update_image()
+            self.last_move_back = Qt.Key_Left
+        if is_real_event:
+            self.update_image()
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ex = MainWindow()
     ex.show()
+    sys.excepthook = except_hook
     sys.exit(app.exec())
