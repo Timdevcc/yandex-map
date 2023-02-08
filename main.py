@@ -2,7 +2,7 @@ import os
 import sys
 import requests
 from PyQt5.QtGui import QPixmap, QColor, QKeyEvent
-from gui import Ui_main_window
+from gui import Ui_mainWindow
 from PyQt5.QtWidgets import QMainWindow, QLabel, QApplication
 from PyQt5 import uic
 from PyQt5.QtCore import Qt, QEvent
@@ -17,7 +17,7 @@ class MainWindow(QMainWindow, Ui_mainWindow):
 
     def __init__(self):
         super().__init__()
-        self.pos = "58.310022,51.194357"
+        self.pos = [58.310022,51.194357]
         self.setupUi(self)
         self.setup_buttons()
         self.staticmap_url = "https://static-maps.yandex.ru/1.x/"
@@ -25,7 +25,7 @@ class MainWindow(QMainWindow, Ui_mainWindow):
         self.scale = 19  # 'z' param in
         self.map_type = "map"
         self.map_params = {"z": self.scale,
-                           "ll": self.pos,
+                           "ll": ','.join(map(str, self.pos)),
                            "l": self.map_type,
                            "size": "650,450"}
         self.mark = None
@@ -66,7 +66,7 @@ class MainWindow(QMainWindow, Ui_mainWindow):
     def setup_buttons(self):
         self.map_btn.clicked.connect(lambda: self.change_map_type("map"))
         self.sput_btn.clicked.connect(lambda: self.change_map_type("sat"))
-        self.gibr_btn.clicked.connect(lambda: self.change_map_type("skl"))
+        self.gibr_btn.clicked.connect(lambda: self.change_map_type("sat,skl"))
         self.pushButton.clicked.connect(self.delete_mark)
 
         self.lineEdit.editingFinished.connect(self.find_object)
@@ -78,19 +78,21 @@ class MainWindow(QMainWindow, Ui_mainWindow):
 
     def find_object(self):
         name = self.lineEdit.text()
-        if name == "": return
+        if name == "":
+            return
         params = {"text": name,
                   "lang": "ru_RU",
                   "apikey": 'dda3ddba-c9ea-4ead-9010-f43fbc15c6e3'}
         response = requests.get(self.search_url, params)
-        if not response: return
+        if not response:
+            return
         json_response = response.json()
 
         obj = json_response["features"][0]
 
         point = obj["geometry"]["coordinates"]
         org_point = "{0},{1}".format(point[0], point[1])
-        self.pos = org_point
+        self.pos = point
         self.mark = org_point
         self.update_image()
 
@@ -100,7 +102,7 @@ class MainWindow(QMainWindow, Ui_mainWindow):
 
     def set_map_params(self):
         self.map_params = {"z": self.scale,
-                           "ll": self.pos,
+                           "ll": ','.join(map(str, self.pos)),
                            "l": self.map_type,
                            "size": "650,450"}
         if self.mark:
