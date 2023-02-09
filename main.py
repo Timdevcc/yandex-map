@@ -1,10 +1,15 @@
+
 import os
 import sys
 import requests
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QColor, QKeyEvent
 from gui import Ui_mainWindow
 from PyQt5.QtWidgets import QMainWindow, QLabel, QApplication
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEvent
+
+
+def except_hook(cls, exception, traceback):
+    sys.__excepthook__(cls, exception, traceback)
 
 
 class MainWindow(QMainWindow, Ui_mainWindow):
@@ -12,15 +17,16 @@ class MainWindow(QMainWindow, Ui_mainWindow):
 
     def __init__(self):
         super().__init__()
-        self.pos = "58.310022,51.194357"
+        self.pos = [58.310022,51.194357]
         self.setupUi(self)
         self.setup_buttons()
         self.staticmap_url = "https://static-maps.yandex.ru/1.x/"
         self.search_url = "https://search-maps.yandex.ru/v1/"
+        self.geo_url = "http://geocode-maps.yandex.ru/1.x/?"
         self.scale = 19  # 'z' param in
         self.map_type = "map"
         self.map_params = {"z": self.scale,
-                           "ll": self.pos,
+                           "ll": ','.join(map(str, self.pos)),
                            "l": self.map_type,
                            "size": "650,450"}
         self.mark = None
@@ -29,6 +35,27 @@ class MainWindow(QMainWindow, Ui_mainWindow):
 
         self.image = None
         self.pixmap = None
+        self.move_from_scale = {
+            19: 0.0001,
+            18: 0.0002,
+            17: 0.0003,
+            16: 0.0004,
+            15: 0.001,
+            14: 0.002,
+            13: 0.003,
+            12: 0.004,
+            11: 0.005,
+            10: 0.04,
+            9: 0.06,
+            8: 0.08,
+            7: 0.1,
+            6: 0.3,
+            5: 0.5,
+            4: 0.7,
+            3: 0.9,
+            2: 1,
+            1: 1
+        }
         self.get_image()
         self.loadUi()
 
@@ -40,7 +67,7 @@ class MainWindow(QMainWindow, Ui_mainWindow):
     def setup_buttons(self):
         self.map_btn.clicked.connect(lambda: self.change_map_type("map"))
         self.sput_btn.clicked.connect(lambda: self.change_map_type("sat"))
-        self.gibr_btn.clicked.connect(lambda: self.change_map_type("skl"))
+        self.gibr_btn.clicked.connect(lambda: self.change_map_type("sat,skl"))
         self.pushButton.clicked.connect(self.delete_mark)
 
         self.lineEdit.editingFinished.connect(self.find_object)
@@ -48,27 +75,47 @@ class MainWindow(QMainWindow, Ui_mainWindow):
     def delete_mark(self):
         self.sender().clearFocus()
         self.map_params.pop("pt", "")
+        self.lineEdit_2.setText("")
         self.mark = None
         self.update_image()
 
     def find_object(self):
-        self.lineEdit.clearFocus()
+        self.sender().clearFocus()
         name = self.lineEdit.text()
-        if name == "": return
+        if name == "":
+            return
         params = {"text": name,
                   "lang": "ru_RU",
                   "apikey": 'dda3ddba-c9ea-4ead-9010-f43fbc15c6e3'}
         response = requests.get(self.search_url, params)
-        if not response: return
+        if not response:
+            return
         json_response = response.json()
 
         obj = json_response["features"][0]
 
         point = obj["geometry"]["coordinates"]
         org_point = "{0},{1}".format(point[0], point[1])
-        self.pos = org_point
+        self.pos = point
         self.mark = org_point
+        self.find_adress(org_point)
         self.update_image()
+
+    def find_adress(self, point):
+        params = {
+            "geocode": point,
+            "apikey": "40d1649f-0493-4b70-98ba-98533de7710b",
+            "format": "json"
+        }
+        resp = requests.get(self.geo_url, params=params)
+        json = resp.json()
+        toponym = json["response"]["GeoObjectCollection"]["featureMember"][0]["GeoObject"]
+        toponym_address = toponym["metaDataProperty"]["GeocoderMetaData"]["text"]
+        if self.radioButton_2.isChecked():
+            postal = toponym["metaDataProperty"]["GeocoderMetaData"]["Address"]["postal_code"]
+            toponym_address += " " + postal
+        self.lineEdit_2.setText(toponym_address)
+
 
     def change_map_type(self, typ):
         self.map_type = typ
@@ -77,7 +124,7 @@ class MainWindow(QMainWindow, Ui_mainWindow):
 
     def set_map_params(self):
         self.map_params = {"z": self.scale,
-                           "ll": self.pos,
+                           "ll": ','.join(map(str, self.pos)),
                            "l": self.map_type,
                            "size": "650,450"}
         if self.mark:
@@ -85,6 +132,14 @@ class MainWindow(QMainWindow, Ui_mainWindow):
 
     def set_map(self):
         self.pixmap = QPixmap(MainWindow.map_file)
+        color = self.pixmap.toImage().pixelColor(0, 0)
+        if color == QColor("#BEBEBE"):
+            print(QEvent.KeyPress)
+            self.keyPressEvent(event=QKeyEvent(
+                QEvent.Type(6), self.last_move_back,
+                Qt.KeyboardModifier.NoModifier),
+                is_real_event=False)
+            return
         self.image.setPixmap(self.pixmap)
 
     def get_image(self):
@@ -110,36 +165,38 @@ class MainWindow(QMainWindow, Ui_mainWindow):
     def closeEvent(self, event):
         os.remove(MainWindow.map_file)
 
-    def keyPressEvent(self, event):
+    def keyPressEvent(self, event, is_real_event=True):
+        self.last_move_back = 0
         if event.key() == Qt.Key_PageUp:
             self.scale += 1
             if self.scale > 23:
                 self.scale = 23
-            self.k -= 0.6
+            self.last_move_back = Qt.Key_PageDown
         elif event.key() == Qt.Key_PageDown:
             self.scale -= 1
             if self.scale < 1:
                 self.scale = 1
-            self.k += 0.6
-
-        pos = [float(i) for i in self.pos.split(",")]
-        if event.key() == Qt.Key_Up:
-            pos[1] += self.offset ** self.k * 0.0001
+            self.last_move_back = Qt.Key_Up
+        elif event.key() == Qt.Key_Up:
+            self.pos[1] = self.pos[1] + self.move_from_scale[self.scale]
+            self.last_move_back = Qt.Key_Down
         elif event.key() == Qt.Key_Down:
-            pos[1] -= self.offset ** self.k * 0.0001
+            self.pos[1] = self.pos[1] - self.move_from_scale[self.scale]
+            self.last_move_back = Qt.Key_Up
         elif event.key() == Qt.Key_Left:
-            pos[0] -= self.offset ** self.k * 0.0001
+            self.pos[0] = self.pos[0] - self.move_from_scale[self.scale]
+            self.last_move_back = Qt.Key_Right
         elif event.key() == Qt.Key_Right:
-            pos[0] += self.offset ** self.k * 0.0001
-        print(pos)
-        if 0 < pos[0] < 90 and 0 < pos[1] < 90:
-            self.pos = ",".join(str(i) for i in pos)
-
-        self.update_image()
+            self.pos[0] = self.pos[0] + self.move_from_scale[self.scale]
+            self.last_move_back = Qt.Key_Left
+        if is_real_event:
+            self.update_image()
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ex = MainWindow()
     ex.show()
+    sys.excepthook = except_hook
     sys.exit(app.exec())
+
