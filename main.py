@@ -72,11 +72,13 @@ class MainWindow(QMainWindow, Ui_mainWindow):
         self.lineEdit.editingFinished.connect(self.find_object)
 
     def delete_mark(self):
+        self.sender().clearFocus()
         self.map_params.pop("pt", "")
         self.mark = None
         self.update_image()
 
     def find_object(self):
+        self.sender().clearFocus()
         name = self.lineEdit.text()
         if name == "":
             return
@@ -98,6 +100,7 @@ class MainWindow(QMainWindow, Ui_mainWindow):
 
     def change_map_type(self, typ):
         self.map_type = typ
+        self.sender().clearFocus()
         self.update_image()
 
     def set_map_params(self):
